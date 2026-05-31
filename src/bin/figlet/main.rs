@@ -1,7 +1,6 @@
 use std::ffi::OsString;
 use std::io::{self, BufRead};
 use std::path::{Path, PathBuf, is_separator};
-use regex::Regex;
 use figdriver::Error;
 
 mod cli;
@@ -306,22 +305,20 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
         }
     }
 
-    let re = Regex::new(r"(\S+|\s+)").unwrap();
-
     if !msg.is_empty() {
-        write_line(&mut wr, msg, &re);
+        write_line(&mut wr, msg);
     } else {
         let input = io::BufReader::new(io::stdin());
         if cfg.paragraph {
             for line in input.lines() {
                 let line = line?;
-                write_paragraph(&mut wr, &line, &re);
+                write_paragraph(&mut wr, &line);
             }
             print_output(&wr.get());
         } else {
             for line in input.lines() {
                 let line = line?;
-                write_line(&mut wr, &line, &re);
+                write_line(&mut wr, &line);
             }
         }
     }
@@ -329,25 +326,36 @@ fn run(path: &Path, msg: &str, cfg: &RunConfig) -> Result<(), Error> {
     Ok(())
 }
 
-fn write_line(wr: &mut figdriver::Wrapper, s: &str, re: &Regex) {
+fn write_line(wr: &mut figdriver::Wrapper, s: &str) {
     wr.clear();
-    write_tokens(wr, s, re);
+    write_tokens(wr, s);
     print_output(&wr.get());
 }
 
-fn write_paragraph(wr: &mut figdriver::Wrapper, s: &str, re: &Regex) {
+fn write_paragraph(wr: &mut figdriver::Wrapper, s: &str) {
     if s.starts_with(char::is_whitespace) && !wr.is_empty() {
         print_output(&wr.get());
         wr.clear();
     }
-    write_tokens(wr, s, re);
+    write_tokens(wr, s);
 }
 
-fn write_tokens(wr: &mut figdriver::Wrapper, s: &str, re: &Regex) {
-    for caps in re.captures_iter(s) {
-        if let Some(val) = caps.get(0) {
-            wr.wrap_str(val.as_str(), &print_output);
+fn write_tokens(wr: &mut figdriver::Wrapper, s: &str) {
+    let mut chars = s.char_indices().peekable();
+    let mut start = 0;
+
+    while let Some((_, c)) = chars.next() {
+        let is_ws = c.is_whitespace();
+        while let Some(&(_, next_c)) = chars.peek() {
+            if next_c.is_whitespace() == is_ws && !(is_ws && next_c != ' ') {
+                chars.next();
+            } else {
+                break;
+            }
         }
+        let end = chars.peek().map(|(idx, _)| *idx).unwrap_or(s.len());
+        wr.wrap_str(&s[start..end], &print_output);
+        start = end;
     }
 }
 

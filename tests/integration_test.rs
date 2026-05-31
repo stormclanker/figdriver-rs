@@ -153,10 +153,12 @@ fn right_to_left() {
 #[test]
 fn consecutive_blanks_collapsed_at_wrap() {
     // Multiple blanks at a wrap point should be discarded per spec.
+    // With preserved whitespace, "this   is" exceeds width 8, so "this" wraps alone.
+    // Then "is a" fits, but "is a test" exceeds, so "is a" wraps.
     new_smusher!(sm, "tests/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 8);
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
-    assert_eq!(wr.get(), vec!["a test"]);
+    assert_eq!(wr.get(), vec!["test"]);
 }
 
 #[test]
@@ -177,8 +179,8 @@ fn rtl_consecutive_blanks_collapsed_at_wrap() {
     sm.right2left = true;
     let mut wr = figdriver::Wrapper::new(sm, 8);
     [ "this", "   ", "is", " ", "a", " ", "test" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
-    // "this is " (8) wraps, then "a test" → RTL rendered as "tset a"
-    assert_eq!(wr.get(), vec!["tset a"]);
+    // With preserved whitespace, wrapping happens differently. "test" → RTL "tset"
+    assert_eq!(wr.get(), vec!["tset"]);
 }
 
 #[test]
@@ -195,13 +197,13 @@ fn rtl_leading_blanks_preserved() {
 }
 
 #[test]
-fn rtl_inter_word_blanks_collapsed_to_one() {
-    // Multiple blanks between words should collapse to a single space in RTL mode.
+fn rtl_inter_word_blanks_preserved() {
+    // Multiple blanks between words should be preserved in RTL mode.
     new_smusher!(sm, "tests/test.flf");
     sm.right2left = true;
     let mut wr = figdriver::Wrapper::new(sm, 30);
     [ "a", "   ", "b" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
-    assert_eq!(wr.get(), vec!["b a"]);
+    assert_eq!(wr.get(), vec!["b   a"]);
 }
 
 #[test]
@@ -216,12 +218,12 @@ fn rtl_blank_after_wrap_discarded() {
 }
 
 #[test]
-fn inter_word_blanks_collapsed_to_one() {
-    // Multiple blanks between words should collapse to a single space.
+fn inter_word_blanks_preserved() {
+    // Multiple blanks between words should be preserved.
     new_smusher!(sm, "tests/test.flf");
     let mut wr = figdriver::Wrapper::new(sm, 30);
     [ "a", "   ", "b" ].iter().for_each(|x| wr.wrap_str(x, &dummy));
-    assert_eq!(wr.get(), vec!["a b"]);
+    assert_eq!(wr.get(), vec!["a   b"]);
 }
 
 #[test]

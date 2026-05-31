@@ -74,3 +74,28 @@ pub fn run_with_input(args: &[&str], input: &str) -> Vec<String> {
         .filter(|line| !line.trim().is_empty())
         .collect()
 }
+
+/// Run a command with stdin input and return output lines without trimming.
+/// Filters out blank lines. Asserts that the command succeeded.
+pub fn run_with_input_no_trim(args: &[&str], input: &str) -> Vec<String> {
+    let mut cmd = cmd_figlet(args);
+    let mut child = cmd
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(input.as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert_success(&output);
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|line| line.to_string())
+        .filter(|line| !line.trim().is_empty())
+        .collect()
+}

@@ -13,14 +13,14 @@ pub enum Align {
 /// Wrapper receives string or character input and renders the corresponding
 /// FIGcharacters if the output text fits inside the maximum width specified on
 /// creation. The wrapper will flush the output buffer earlier if the line is
-/// too long, thus producing multiple “lines” of output text.
+/// too long, thus producing multiple "lines" of output text.
 pub struct Wrapper<'a> {
-    sm         : Smusher<'a>, // the FIGcharacter smusher
-    buffer     : String,      // buffer to keep our input text
-    has_space  : bool,        // whether the previous token was whitespace
-    just_flushed: bool,       // true after a wrap flush, suppresses leading space/whitespace
-    pub width  : usize,       // terminal width
-    pub align  : Align,       // text alignment
+    sm            : Smusher<'a>,    // the FIGcharacter smusher
+    buffer        : String,         // buffer to keep our input text
+    pending_space : Option<String>, // accumulated whitespace to commit with next word
+    just_flushed  : bool,           // true after a wrap flush, suppresses leading space/whitespace
+    pub width     : usize,          // terminal width
+    pub align     : Align,          // text alignment
 }
 
 impl<'a> Wrapper<'a> {
@@ -43,10 +43,10 @@ impl<'a> Wrapper<'a> {
         Wrapper{
             sm,
             width,
-            buffer     : String::new(),
-            align      : Align::Left,
-            has_space  : true,
-            just_flushed: false,
+            buffer        : String::new(),
+            align         : Align::Left,
+            pending_space : None,
+            just_flushed  : false,
         }
     }
 
@@ -54,7 +54,7 @@ impl<'a> Wrapper<'a> {
     pub fn clear(&mut self) {
         self.sm.clear();
         self.buffer.clear();
-        self.has_space = true;
+        self.pending_space = None;
         self.just_flushed = false;
     }
 
@@ -207,40 +207,57 @@ impl<'a> Wrapper<'a> {
         // Handle whitespace tokens per spec (figfont.txt lines 1623-1633):
         // - At wrap points: discard all blanks until next non-blank character
         // - At input start or after linebreak: preserve blanks as FIGcharacters
-        // - Between words: collapse to a single space (handled via has_space flag)
+        // - Between words: accumulate whitespace, commit when next word arrives
         if empty {
             if self.just_flushed {
                 return;
             }
             if self.buffer.is_empty() {
                 self.push_str(s).ok();
-                self.has_space = false;
                 return;
             }
-            self.has_space = true;
+            self.pending_space = Some(self.pending_space.clone().unwrap_or_default() + s);
             return;
         }
 
         let after_wrap = std::mem::replace(&mut self.just_flushed, false);
+        let space = self.pending_space.take();
 
-        if self.has_space && !after_wrap && !self.buffer.is_empty() {
-            let _ = self.push(' ');
-        }
-
-        if self.push_str(s).is_err() {
+        // Commit accumulated whitespace if we're not at a wrap point.
+        // Save buffer state before spaces so that, if the subsequent word push
+        // fails, the flush outputs content without trailing whitespace (spec
+        // says blanks at wrap points are discarded).
+        if let Some(ref sp) = space {
+            if !after_wrap && !self.buffer.is_empty() {
+                let pre_space_buffer = self.buffer.clone();
+                if self.push_str(sp).is_err() {
+                    flush(&self.get());
+                    self.clear();
+                    self.push_str(sp).ok();
+                }
+                if self.push_str(s).is_err() {
+                    self.sm.clear();
+                    self.sm.push_str(&pre_space_buffer);
+                    flush(&self.get());
+                    self.clear();
+                    if self.push_str(s).is_err() {
+                        self.wrap_word(s, flush);
+                        self.just_flushed = false;
+                        return;
+                    }
+                }
+            }
+        } else if self.push_str(s).is_err() {
             if !self.buffer.is_empty() {
                 flush(&self.get());
                 self.clear();
             }
             if self.push_str(s).is_err() {
                 self.wrap_word(s, flush);
-                self.has_space = false;
                 self.just_flushed = false;
                 return;
             }
         }
-
-        self.has_space = false;
     }
 
     /// Add a word to the output buffer, breaking it if necessary.
