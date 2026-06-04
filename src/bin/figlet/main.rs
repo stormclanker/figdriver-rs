@@ -215,24 +215,24 @@ fn strip_font_suffix(name: &str) -> &str {
 }
 
 fn find_font(font_dir: PathBuf, name: String) -> PathBuf {
-    if name.starts_with(is_separator) {
-        return PathBuf::from(&name);
-    }
-
     let candidates = if name.ends_with(".flf") || name.ends_with(".tlf") {
-        vec![name.clone()]
+        vec![name]
     } else {
         vec![format!("{}.flf", name), format!("{}.tlf", name)]
     };
 
-    for candidate in candidates {
-        let path = font_dir.join(&candidate);
+    for candidate in &candidates {
+        let path = if candidate.starts_with(is_separator) {
+            PathBuf::from(candidate)
+        } else {
+            font_dir.join(candidate)
+        };
         if path.exists() {
             return path;
         }
     }
 
-    PathBuf::from(name)
+    PathBuf::from(candidates.into_iter().next().unwrap())
 }
 
 fn find_control(font_dir: &str, mut name: String) -> PathBuf {

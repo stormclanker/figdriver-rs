@@ -2,7 +2,11 @@ use std::cmp::min;
 pub use crate::figfont::{FIGchar, FIGfont};
 use crate::flc::FlcPipeline;
 use crate::SMUSH_ENABLE;
-use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+use unicode_width::UnicodeWidthChar;
+
+pub(crate) fn display_width(s: &str) -> usize {
+    s.chars().map(|c| c.width().unwrap_or(1)).sum()
+}
 
 mod charsmush;
 pub mod strsmush;
@@ -253,10 +257,10 @@ impl<'a> Smusher<'a> {
         }
     }
 
-    /// Obtain the size, in sub-characters, of any line of the output buffer.
+   /// Obtain the size, in sub-characters, of any line of the output buffer.
     pub fn len(&self) -> usize {
         let s: &str = &self.output[0];
-        s.width()
+        display_width(s)
     }
 
     /// Limit the size, in sub-characters, of the output buffer. If the buffer is longer than
@@ -277,7 +281,7 @@ fn amount(output: &[String], c: &FIGchar, hardblank: char, mode: u32, right2left
 fn trim(output: &[String], width: usize) -> Vec<String> {
     output.iter().map(|line| {
         let s: &str = line;
-        if s.width() <= width {
+        if display_width(s) <= width {
             return s.to_string();
         }
         let mut total = 0;

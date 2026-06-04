@@ -1,6 +1,6 @@
 use crate::Error;
 use crate::Smusher;
-use unicode_width::UnicodeWidthStr;
+use crate::smusher::display_width;
 
 #[derive(Clone, Copy)]
 pub enum Align {
@@ -100,9 +100,9 @@ impl<'a> Wrapper<'a> {
 
         // Pad the block to its own widest line (figlet convention), then replace
         // hardblanks with spaces (figlet never trims output).
-        let max_w = v.iter().map(|l| l.width()).max().unwrap_or(0);
+        let max_w = v.iter().map(|l| display_width(l)).max().unwrap_or(0);
         for line in &mut v {
-            let len = line.width();
+            let len = display_width(line);
             if len < max_w {
                 line.extend(std::iter::repeat_n(' ', max_w - len));
             }
