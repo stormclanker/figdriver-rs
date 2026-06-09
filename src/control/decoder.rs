@@ -316,7 +316,6 @@ impl StreamingDecoder {
     }
 
     fn decode_hz(&mut self, bytes: &[u8]) -> Vec<i32> {
-        let two_byte_initial = self.hz_two_byte;
         let mut result = Vec::new();
         let mut pos = 0;
 
@@ -350,10 +349,6 @@ impl StreamingDecoder {
                 result.push(bytes[pos] as i32);
                 pos += 1;
             }
-        }
-
-        if result.is_empty() {
-            self.hz_two_byte = two_byte_initial;
         }
 
         result
