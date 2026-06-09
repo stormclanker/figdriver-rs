@@ -229,6 +229,7 @@ struct Iso2022State {
     gndbl: [bool; 4],
     gl: usize,
     gr: usize,
+    single_shift: Option<usize>,
 }
 
 impl Default for Iso2022State {
@@ -238,6 +239,7 @@ impl Default for Iso2022State {
             gndbl: [false; 4],
             gl: 0,
             gr: 1,
+            single_shift: None,
         }
     }
 }
@@ -267,6 +269,7 @@ impl Iso2022State {
             gndbl,
             gl: settings.left_half,
             gr: settings.right_half,
+            single_shift: None,
         }
     }
 }
@@ -360,7 +363,7 @@ impl StreamingDecoder {
             gndbl: self.iso2022_state.gndbl,
             gl: self.iso2022_state.gl,
             gr: self.iso2022_state.gr,
-            single_shift: None,
+            single_shift: self.iso2022_state.single_shift,
             pos: 0,
         };
         let mut result = Vec::new();
@@ -395,6 +398,7 @@ impl StreamingDecoder {
         self.iso2022_state.gndbl = ctx.gndbl;
         self.iso2022_state.gl = ctx.gl;
         self.iso2022_state.gr = ctx.gr;
+        self.iso2022_state.single_shift = ctx.single_shift;
 
         result
     }
