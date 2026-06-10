@@ -35,9 +35,13 @@ pub fn decompress_zip<P: AsRef<Path>>(path: P) -> Result<Cursor<Vec<u8>>, std::i
 /// remains usable for subsequent operations.
 pub fn is_zip_reader<R: Read + Seek>(reader: &mut R) -> Result<bool, std::io::Error> {
     let mut header = [0u8; 2];
-    reader.read_exact(&mut header)?;
+    let res = reader.read_exact(&mut header);
     reader.seek(SeekFrom::Start(0))?;
-    Ok(header == ZIP_MAGIC)
+    match res {
+        Ok(()) => Ok(header == ZIP_MAGIC),
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => Ok(false),
+        Err(e) => Err(e),
+    }
 }
 
 /// Decompress the first entry of a ZIP archive from a reader.
